@@ -1,0 +1,10 @@
+{
+  "name": "stocksense-app",
+  "version": "1.0.0",
+  "description": "StockSense Inventory Management System Full-Stack App",
+  "scripts": {
+    "server": "npm --prefix server start",
+    "client": "npm --prefix client dev",
+    "seed": "npm --prefix server run seed"
+  }
+}

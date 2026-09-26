@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import {
   Package,
   Plus,
@@ -11,12 +12,15 @@ import {
   Trash2,
   Warehouse,
   Tag,
-  Boxes
+  Lock
 } from 'lucide-react';
 import ProductModal from './ProductModal';
 import { toast } from 'sonner';
 
 export default function ProductList() {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +66,10 @@ export default function ProductList() {
   }, [search, categoryFilter, statusFilter]);
 
   const handleDelete = async (id, name) => {
+    if (!isManager) {
+      toast.error('Access Denied: Only Inventory Managers can delete products');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
     try {
       await apiRequest(`/products/${id}`, 'DELETE');
@@ -85,16 +93,22 @@ export default function ProductList() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setSelectedProduct(null);
-            setIsModalOpen(true);
-          }}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          + Create Product
-        </button>
+        {isManager ? (
+          <button
+            onClick={() => {
+              setSelectedProduct(null);
+              setIsModalOpen(true);
+            }}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            + Create Product
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-slate-400 rounded-xl text-xs font-medium border border-slate-700">
+            <Lock className="w-3.5 h-3.5 text-amber-400" /> Catalog Editing Restricted (Manager Only)
+          </div>
+        )}
       </div>
 
       {/* Filter Bar */}
@@ -159,7 +173,6 @@ export default function ProductList() {
               <tbody className="divide-y divide-slate-800/60 text-xs">
                 {products.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                    {/* Product Name & SKU */}
                     <td className="py-3.5 px-4">
                       <div className="font-semibold text-slate-100">{item.name}</div>
                       <span className="font-mono text-[10px] text-indigo-400 bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-800/40">
@@ -167,7 +180,6 @@ export default function ProductList() {
                       </span>
                     </td>
 
-                    {/* Category */}
                     <td className="py-3.5 px-4 text-slate-300">
                       <span className="inline-flex items-center gap-1 text-[11px] text-slate-300 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
                         <Tag className="w-3 h-3 text-slate-400" />
@@ -175,14 +187,12 @@ export default function ProductList() {
                       </span>
                     </td>
 
-                    {/* Total Stock */}
                     <td className="py-3.5 px-4 font-bold text-sm">
                       <span className={item.total_stock <= item.min_stock ? 'text-rose-400' : 'text-emerald-400'}>
                         {item.total_stock} {item.uom}
                       </span>
                     </td>
 
-                    {/* Stock Availability per Location */}
                     <td className="py-3.5 px-4">
                       <div className="space-y-1">
                         {item.locations && item.locations.length > 0 ? (
@@ -199,13 +209,11 @@ export default function ProductList() {
                       </div>
                     </td>
 
-                    {/* Reordering Rules Limits */}
                     <td className="py-3.5 px-4 text-[11px] text-slate-400 font-mono">
                       Min: <span className="text-amber-400">{item.min_stock}</span> | Max:{' '}
                       <span className="text-slate-300">{item.max_stock}</span>
                     </td>
 
-                    {/* Status Badge */}
                     <td className="py-3.5 px-4">
                       {item.total_stock <= item.min_stock ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-950/60 text-rose-400 border border-rose-800/60">
@@ -218,27 +226,30 @@ export default function ProductList() {
                       )}
                     </td>
 
-                    {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => {
-                            setSelectedProduct(item);
-                            setIsModalOpen(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-slate-800 rounded-lg transition-all"
-                          title="Edit Product"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id, item.name)}
-                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-all"
-                          title="Delete Product"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {isManager ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => {
+                              setSelectedProduct(item);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-slate-800 rounded-lg transition-all"
+                            title="Edit Product"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id, item.name)}
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-all"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 italic">Read-Only</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -248,12 +259,14 @@ export default function ProductList() {
         )}
       </div>
 
-      <ProductModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        product={selectedProduct}
-        onSuccess={fetchProducts}
-      />
+      {isManager && (
+        <ProductModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          product={selectedProduct}
+          onSuccess={fetchProducts}
+        />
+      )}
     </div>
   );
 }

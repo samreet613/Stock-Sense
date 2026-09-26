@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { run, get } from '../db/database.js';
 import { generateToken, authenticateToken } from '../middleware/auth.js';
+import { verifyEmailAddress, sendOTPEmail } from '../services/mailer.js';
 
 const router = express.Router();
 
@@ -10,12 +11,25 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email and password are required' });
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
     }
 
+    // 1. Check if email address actually exists
+    const emailCheck = await verifyEmailAddress(email);
+    if (!emailCheck.valid) {
+      return res.status(400).json({
+        code: 'INVALID_EMAIL',
+        error: `Invalid Email: ${emailCheck.reason}`
+      });
+    }
+
+    // 2. Requirement 2: Pop up if user already exists
     const existingUser = await get('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()]);
     if (existingUser) {
-      return res.status(400).json({ error: 'An account with this email already exists' });
+      return res.status(400).json({
+        code: 'USER_ALREADY_EXISTS',
+        error: 'User Already Exists! An account with this email address is already registered. Please sign in instead.'
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -32,7 +46,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({ user, token });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ error: 'Failed to create user account' });
+    res.status(500).json({ error: 'Failed to create user account.' });
   }
 });
 
@@ -41,17 +55,30 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ error: 'Email and password are required.' });
     }
 
+    // 1. Check if email address format and domain are valid
+    const emailCheck = await verifyEmailAddress(email);
+    if (!emailCheck.valid) {
+      return res.status(400).json({
+        code: 'INVALID_EMAIL',
+        error: `Invalid Email: ${emailCheck.reason}`
+      });
+    }
+
+    // 2. Requirement 3: Pop up if user does not exist
     const userRow = await get('SELECT * FROM users WHERE email = ?', [email.toLowerCase().trim()]);
     if (!userRow) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({
+        code: 'USER_DOES_NOT_EXIST',
+        error: 'User Does Not Exist! No account was found for this email address. Please register / sign up first.'
+      });
     }
 
     const match = await bcrypt.compare(password, userRow.password_hash);
     if (!match) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
     }
 
     const user = { id: userRow.id, name: userRow.name, email: userRow.email, role: userRow.role };
@@ -60,7 +87,7 @@ router.post('/login', async (req, res) => {
     res.json({ user, token });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Failed to authenticate user' });
+    res.status(500).json({ error: 'Failed to authenticate user.' });
   }
 });
 
@@ -69,17 +96,28 @@ router.post('/request-otp', async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+      return res.status(400).json({ error: 'Please enter your registered email address.' });
+    }
+
+    const emailCheck = await verifyEmailAddress(email);
+    if (!emailCheck.valid) {
+      return res.status(400).json({
+        code: 'INVALID_EMAIL',
+        error: `Invalid Email: ${emailCheck.reason}`
+      });
     }
 
     const userRow = await get('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()]);
     if (!userRow) {
-      return res.status(404).json({ error: 'No user account found with this email' });
+      return res.status(404).json({
+        code: 'USER_DOES_NOT_EXIST',
+        error: 'User Does Not Exist! No registered account was found with this email address. Please register / sign up first.'
+      });
     }
 
     // Generate random 6-digit OTP code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     await run('DELETE FROM otp_codes WHERE email = ?', [email.toLowerCase().trim()]);
     await run('INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)', [
@@ -88,15 +126,16 @@ router.post('/request-otp', async (req, res) => {
       expiresAt
     ]);
 
-    // Return the generated OTP code in response so user/tester can instantly reset password
+    // Send real email to user's mailbox
+    await sendOTPEmail(email.toLowerCase().trim(), code);
+
     res.json({
-      message: 'OTP sent successfully! (Simulated Mode)',
-      code: code,
+      message: `A 6-digit OTP verification code has been sent to ${email.toLowerCase().trim()}. Please check your email inbox.`,
       email: email.toLowerCase().trim()
     });
   } catch (err) {
     console.error('OTP error:', err);
-    res.status(500).json({ error: 'Failed to generate OTP' });
+    res.status(500).json({ error: 'Failed to dispatch OTP email.' });
   }
 });
 
@@ -105,7 +144,12 @@ router.post('/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword) {
-      return res.status(400).json({ error: 'Email, OTP, and new password are required' });
+      return res.status(400).json({ error: 'Email, OTP, and new password are required.' });
+    }
+
+    const emailCheck = await verifyEmailAddress(email);
+    if (!emailCheck.valid) {
+      return res.status(400).json({ error: emailCheck.reason });
     }
 
     const record = await get(
@@ -114,17 +158,17 @@ router.post('/reset-password', async (req, res) => {
     );
 
     if (!record) {
-      return res.status(400).json({ error: 'Invalid or expired OTP code' });
+      return res.status(400).json({ error: 'Invalid or expired OTP code. Please request a new OTP.' });
     }
 
     const newHash = await bcrypt.hash(newPassword, 10);
     await run('UPDATE users SET password_hash = ? WHERE email = ?', [newHash, email.toLowerCase().trim()]);
     await run('DELETE FROM otp_codes WHERE email = ?', [email.toLowerCase().trim()]);
 
-    res.json({ message: 'Password reset successfully! You can now log in.' });
+    res.json({ message: 'Password reset successfully! You can now log in with your new password.' });
   } catch (err) {
     console.error('Reset password error:', err);
-    res.status(500).json({ error: 'Failed to reset password' });
+    res.status(500).json({ error: 'Failed to reset password.' });
   }
 });
 

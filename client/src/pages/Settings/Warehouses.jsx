@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/api';
-import { Warehouse, Plus, MapPin, Building, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Warehouse, Plus, MapPin, Building, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Warehouses() {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
+
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +42,10 @@ export default function Warehouses() {
 
   const handleCreateWarehouse = async (e) => {
     e.preventDefault();
+    if (!isManager) {
+      toast.error('Access Denied: Only Inventory Managers can create warehouses');
+      return;
+    }
     if (!name.trim() || !code.trim()) return;
     try {
       await apiRequest('/warehouses', 'POST', { name, code, address });
@@ -53,6 +61,10 @@ export default function Warehouses() {
 
   const handleCreateLocation = async (e) => {
     e.preventDefault();
+    if (!isManager) {
+      toast.error('Access Denied: Only Inventory Managers can add rack locations');
+      return;
+    }
     if (!locName.trim() || !locCode.trim() || !selectedWhId) return;
     try {
       await apiRequest('/locations', 'POST', {
@@ -82,111 +94,123 @@ export default function Warehouses() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Create Forms (1 col) */}
+        {/* Create Forms (1 col - Manager only) */}
         <div className="space-y-6">
-          {/* Add Warehouse Card */}
-          <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-xl">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-indigo-400" /> Add Warehouse Facility
-            </h3>
-            <form onSubmit={handleCreateWarehouse} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Facility Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Main Warehouse"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                />
+          {isManager ? (
+            <>
+              {/* Add Warehouse Card */}
+              <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-indigo-400" /> Add Warehouse Facility
+                </h3>
+                <form onSubmit={handleCreateWarehouse} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Facility Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Main Warehouse"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Code *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. WH-MAIN"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Physical Address</label>
+                    <input
+                      type="text"
+                      placeholder="100 Industrial Parkway..."
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-white text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/20"
+                  >
+                    + Create Warehouse
+                  </button>
+                </form>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Code *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. WH-MAIN"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
-                />
+              {/* Add Rack / Shelf Location Card */}
+              <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-cyan-400" /> Add Storage Rack / Location
+                </h3>
+                <form onSubmit={handleCreateLocation} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Target Warehouse</label>
+                    <select
+                      value={selectedWhId}
+                      onChange={(e) => setSelectedWhId(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      {warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name} ({w.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Location / Rack Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Main Store - Rack B"
+                      value={locName}
+                      onChange={(e) => setLocName(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Rack Code *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. WH-MAIN/RACK-B"
+                      value={locCode}
+                      onChange={(e) => setLocCode(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 font-semibold text-white text-xs rounded-xl transition-all shadow-lg shadow-cyan-600/20"
+                  >
+                    + Create Location
+                  </button>
+                </form>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Physical Address</label>
-                <input
-                  type="text"
-                  placeholder="100 Industrial Parkway..."
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-white text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/20"
-              >
-                + Create Warehouse
-              </button>
-            </form>
-          </div>
-
-          {/* Add Rack / Shelf Location Card */}
-          <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-xl">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-cyan-400" /> Add Storage Rack / Location
-            </h3>
-            <form onSubmit={handleCreateLocation} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Target Warehouse</label>
-                <select
-                  value={selectedWhId}
-                  onChange={(e) => setSelectedWhId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                >
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Location / Rack Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Main Store - Rack B"
-                  value={locName}
-                  onChange={(e) => setLocName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Rack Code *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. WH-MAIN/RACK-B"
-                  value={locCode}
-                  onChange={(e) => setLocCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 font-semibold text-white text-xs rounded-xl transition-all shadow-lg shadow-cyan-600/20"
-              >
-                + Create Location
-              </button>
-            </form>
-          </div>
+            </>
+          ) : (
+            <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-xl text-center space-y-3">
+              <Lock className="w-8 h-8 text-amber-400 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-200">Restricted Settings</h4>
+              <p className="text-xs text-slate-400">
+                Facility and Rack creation is restricted strictly to Inventory Managers.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Existing Warehouses List (2 cols) */}

@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/api';
-import { ArrowDownLeft, Plus, CheckCircle2, Clock, Search } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { ArrowDownLeft, Plus, CheckCircle2, Search, Lock } from 'lucide-react';
 import OperationModal from './OperationModal';
 import { toast } from 'sonner';
 
 export default function Receipts() {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
+
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -27,6 +31,10 @@ export default function Receipts() {
   }, [search]);
 
   const handleValidate = async (id, ref) => {
+    if (!isManager) {
+      toast.error('Access Denied: Only Inventory Managers can validate receipts and increment stock');
+      return;
+    }
     try {
       await apiRequest(`/operations/${id}/validate`, 'POST');
       toast.success(`Receipt ${ref} validated! Vendor stock added to inventory.`);
@@ -48,13 +56,19 @@ export default function Receipts() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-1.5"
-        >
-          <Plus className="w-4 h-4" />
-          + Create Receipt
-        </button>
+        {isManager ? (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            + Create Receipt
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-slate-400 rounded-xl text-xs font-medium border border-slate-700">
+            <Lock className="w-3.5 h-3.5 text-amber-400" /> Validation Restricted (Manager Only)
+          </div>
+        )}
       </div>
 
       <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
@@ -108,12 +122,16 @@ export default function Receipts() {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       {r.status !== 'done' && r.status !== 'canceled' ? (
-                        <button
-                          onClick={() => handleValidate(r.id, r.reference_no)}
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-md transition-all inline-flex items-center gap-1"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Validate (+Stock)
-                        </button>
+                        isManager ? (
+                          <button
+                            onClick={() => handleValidate(r.id, r.reference_no)}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-md transition-all inline-flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Validate (+Stock)
+                          </button>
+                        ) : (
+                          <span className="text-amber-400 text-[11px] font-medium italic">Manager Approval Required</span>
+                        )
                       ) : (
                         <span className="text-slate-500 text-xs italic font-mono">Stock Updated ✓</span>
                       )}

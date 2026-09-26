@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/api';
-import { Layers, Plus, Tag } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Layers, Plus, Tag, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CategoriesModal() {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
+
   const [categories, setCategories] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -24,6 +28,10 @@ export default function CategoriesModal() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!isManager) {
+      toast.error('Access Denied: Only Inventory Managers can add product categories');
+      return;
+    }
     if (!name.trim()) return;
     setLoading(true);
     try {
@@ -49,43 +57,55 @@ export default function CategoriesModal() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Create Category Card */}
+        {/* Create Category Card (Manager Only) */}
         <div className="bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-xl h-fit">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-indigo-400" /> Create New Category
-          </h3>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Category Name *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Raw Materials"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
+          {isManager ? (
+            <>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Plus className="w-4 h-4 text-indigo-400" /> Create New Category
+              </h3>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Category Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Raw Materials"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Description</label>
-              <textarea
-                rows={3}
-                placeholder="Brief description..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500 resize-none"
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Description</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Brief description..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500 resize-none"
+                  />
+                </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-white text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/20"
-            >
-              {loading ? 'Creating...' : 'Add Category'}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-white text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/20"
+                >
+                  {loading ? 'Creating...' : 'Add Category'}
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="text-center py-6 space-y-2">
+              <Lock className="w-8 h-8 text-amber-400 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-200">Restricted Action</h4>
+              <p className="text-xs text-slate-400">
+                Adding categories is reserved for Inventory Managers.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Existing Categories List (2 cols) */}

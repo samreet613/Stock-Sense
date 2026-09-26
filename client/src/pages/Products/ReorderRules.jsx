@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/api';
-import { TrendingDown, AlertTriangle, Plus, CheckCircle2, ArrowDownLeft, RefreshCw } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { TrendingDown, AlertTriangle, Plus, CheckCircle2, ArrowDownLeft, Lock } from 'lucide-react';
 import OperationModal from '../Operations/OperationModal';
 import { toast } from 'sonner';
 
 export default function ReorderRules() {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,13 +44,19 @@ export default function ReorderRules() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-1.5"
-        >
-          <Plus className="w-4 h-4" />
-          + Create Purchase Receipt
-        </button>
+        {isManager ? (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            + Create Purchase Receipt
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-slate-400 rounded-xl text-xs font-medium border border-slate-700">
+            <Lock className="w-3.5 h-3.5 text-amber-400" /> Purchasing Restricted (Manager Only)
+          </div>
+        )}
       </div>
 
       {/* Low Stock Alert Header Box */}
@@ -130,13 +140,15 @@ export default function ReorderRules() {
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        {isLow && (
+                        {isLow && isManager ? (
                           <button
                             onClick={() => setIsModalOpen(true)}
                             className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1 ml-auto"
                           >
                             <ArrowDownLeft className="w-3.5 h-3.5" /> Order Stock
                           </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 italic">No Action</span>
                         )}
                       </td>
                     </tr>
@@ -148,12 +160,14 @@ export default function ReorderRules() {
         )}
       </div>
 
-      <OperationModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        defaultType="receipt"
-        onSuccess={fetchReorderItems}
-      />
+      {isManager && (
+        <OperationModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          defaultType="receipt"
+          onSuccess={fetchReorderItems}
+        />
+      )}
     </div>
   );
 }

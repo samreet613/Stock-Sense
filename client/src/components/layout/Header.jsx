@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { apiRequest } from '../../services/api';
-import { Search, Bell, AlertTriangle, UserCheck, Shield } from 'lucide-react';
+import { Search, Bell, AlertTriangle, ShieldCheck, Sun, Moon, Shield, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Header() {
-  const { user, switchRolePreview } = useAuth();
+  const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [lowStockCount, setLowStockCount] = useState(0);
   const [showAlerts, setShowAlerts] = useState(false);
   const [lowStockItems, setLowStockItems] = useState([]);
@@ -24,6 +26,8 @@ export default function Header() {
     checkLowStock();
   }, []);
 
+  const isManager = user?.role === 'manager';
+
   return (
     <header className="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-6 flex items-center justify-between sticky top-0 z-20">
       {/* Search Input */}
@@ -38,43 +42,48 @@ export default function Header() {
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-4">
-        {/* Role Switcher Toggle */}
-        <div className="flex items-center bg-slate-800/80 border border-slate-700/60 rounded-lg p-1 text-xs">
-          <span className="text-[11px] text-slate-400 px-2 font-medium">Role:</span>
-          <button
-            onClick={() => switchRolePreview('manager')}
-            className={`px-2.5 py-1 rounded-md transition-all font-medium flex items-center gap-1 ${
-              user?.role === 'manager'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Shield className="w-3 h-3" />
-            Manager
-          </button>
-          <button
-            onClick={() => switchRolePreview('staff')}
-            className={`px-2.5 py-1 rounded-md transition-all font-medium flex items-center gap-1 ${
-              user?.role === 'staff'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <UserCheck className="w-3 h-3" />
-            Staff
-          </button>
+      <div className="flex items-center gap-3">
+        {/* User Authentic Role Badge */}
+        <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 border border-slate-700/60 rounded-xl text-xs">
+          {isManager ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400">
+              <Shield className="w-3.5 h-3.5 text-indigo-400" /> Inventory Manager
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-400">
+              <UserCheck className="w-3.5 h-3.5 text-cyan-400" /> Warehouse Staff
+            </span>
+          )}
         </div>
+
+        {/* Light Mode / Dark Mode Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          className="p-2 text-slate-300 hover:bg-slate-800 rounded-xl transition-all border border-slate-700/60 flex items-center gap-1.5 text-xs font-semibold"
+        >
+          {theme === 'dark' ? (
+            <>
+              <Sun className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline text-slate-300">Light</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-4 h-4 text-indigo-400" />
+              <span className="hidden sm:inline text-slate-700">Dark</span>
+            </>
+          )}
+        </button>
 
         {/* Low Stock Alerts Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowAlerts(!showAlerts)}
-            className="relative p-2 text-slate-300 hover:bg-slate-800 rounded-xl transition-all border border-slate-800"
+            className="relative p-2 text-slate-300 hover:bg-slate-800 rounded-xl transition-all border border-slate-700/60"
           >
-            <Bell className="w-5 h-5" />
+            <Bell className="w-4 h-4" />
             {lowStockCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white font-bold text-[10px] rounded-full flex items-center justify-center animate-pulse">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white font-bold text-[9px] rounded-full flex items-center justify-center animate-pulse">
                 {lowStockCount}
               </span>
             )}
